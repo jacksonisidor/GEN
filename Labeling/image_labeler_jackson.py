@@ -4,7 +4,7 @@ import cv2
 import csv
 
 
-# ------------------ Paths ------------------
+# ------------------ File Paths ------------------
 script_dir = Path(__file__).resolve().parent
 input_dir = script_dir / "standardized_training_images"
 output_dir = script_dir / "altered_images_jackson"
@@ -15,14 +15,14 @@ IMAGE_PATH = input_dir / f"{IMAGE_NAME}.jpg"
 output_path = output_dir / f"boxed_{IMAGE_NAME}.jpg"
 csv_path = script_dir / "annotations_jackson.csv"
 
-dictionary = {"lp", "eo", "logo", "ss"}
+objects = {"lp", "eo", "logo", "ss"}
 
 img = cv2.imread(str(IMAGE_PATH))
 if img is None:
     raise FileNotFoundError(f"Could not load image at path: {IMAGE_PATH}")
 
-# -------- BIG SPEED LEVER --------
-# Change this to 0.5 or 0.33 if images are large (recommended on Mac)
+# -------- Speed / Resolution --------
+
 DISPLAY_SCALE = 0.5
 
 if DISPLAY_SCALE != 1.0:
@@ -30,7 +30,10 @@ if DISPLAY_SCALE != 1.0:
 else:
     disp_img = img
 
-# permanent layer in DISPLAY coords
+box_thickness = 2
+
+# -------- Drawing --------
+    
 base = disp_img.copy()
 
 drawing = False
@@ -58,7 +61,7 @@ def render(temp_rect=None):
         # copy only while dragging (still much less work than 60fps loop)
         frame = base.copy()
         x1, y1, x2, y2 = temp_rect
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2, lineType=cv2.LINE_8)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), box_thickness, lineType=cv2.LINE_8)
         last_render = frame
 
     cv2.imshow("Image", last_render)
@@ -82,20 +85,20 @@ def on_mouse(event, x, y, flags, param):
         y1, y2 = sorted([y1, y2])
 
         # Draw permanent on base
-        cv2.rectangle(base, (x1, y1), (x2, y2), (0, 255, 0), 2, lineType=cv2.LINE_8)
+        cv2.rectangle(base, (x1, y1), (x2, y2), (0, 255, 0), box_thickness, lineType=cv2.LINE_8)
 
         # Ask label
         while True:
+
             label = input(
-                f"Label for ({x1},{y1}) -> ({x2},{y2}) "
-                f"[{', '.join(sorted(dictionary))}] or 'redo' or 'clean': "
+                f"Enter label [{', '.join(sorted(objects))}] or 'redo' or 'clean': "
             ).strip().lower()
 
             if label == "redo":
                 # remove the last drawn rect by rebuilding base
                 base = disp_img.copy()
                 for bx, by, bx2, by2, bl in boxes:
-                    cv2.rectangle(base, (bx, by), (bx2, by2), (0, 255, 0), 2, lineType=cv2.LINE_8)
+                    cv2.rectangle(base, (bx, by), (bx2, by2), (0, 255, 0), box_thickness, lineType=cv2.LINE_8)
                 render()
                 return
             
@@ -105,7 +108,7 @@ def on_mouse(event, x, y, flags, param):
                 clear_all_boxes()
                 return
 
-            if label in dictionary:
+            if label in objects:
                 break
             print("Invalid label.")
 
@@ -187,7 +190,7 @@ def load_existing_boxes():
     # redraw base with all loaded boxes
     base = disp_img.copy()
     for bx, by, bx2, by2, bl in boxes:
-        cv2.rectangle(base, (bx, by), (bx2, by2), (0, 255, 0), 2, lineType=cv2.LINE_8)
+        cv2.rectangle(base, (bx, by), (bx2, by2), (0, 255, 0), box_thickness, lineType=cv2.LINE_8)
 
 
 cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
@@ -206,7 +209,7 @@ while True:
         for x1, y1, x2, y2, label in boxes:
             ox1, oy1 = to_original_coords(x1, y1)
             ox2, oy2 = to_original_coords(x2, y2)
-            cv2.rectangle(out, (ox1, oy1), (ox2, oy2), (0, 255, 0), 2, lineType=cv2.LINE_8)
+            cv2.rectangle(out, (ox1, oy1), (ox2, oy2), (0, 255, 0), box_thickness, lineType=cv2.LINE_8)
 
         success = cv2.imwrite(str(output_path), out)
         print("Save success:", success)
